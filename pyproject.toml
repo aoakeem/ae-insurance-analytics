@@ -1,0 +1,11 @@
+[project]
+name = "ae-insurance-analytics"
+version = "0.1.0"
+description = "Take-home: insurance analytics semantic layer using dbt + DuckDB + MetricFlow"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "dbt-core>=1.10.22",
+    "dbt-duckdb>=1.10.0",
+    "dbt-metricflow>=1.9.0",
+]

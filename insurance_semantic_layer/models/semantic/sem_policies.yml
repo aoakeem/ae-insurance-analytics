@@ -1,0 +1,59 @@
+version: 2
+
+semantic_models:
+  - name: policies
+    description: >
+      Policy book metrics — portfolio size, written premium, and claim payouts.
+      Premiums and settlements are rolled up to policy level so metrics like
+      loss ratio stay accurate when sliced by line of business or customer segment.
+    model: ref('fct_policy_summary')
+
+    defaults:
+      agg_time_dimension: policy_start_date
+
+    entities:
+      - name: policy
+        type: primary
+        expr: policy_id
+      - name: customer
+        type: foreign
+        expr: customer_id
+
+    dimensions:
+      - name: policy_type
+        type: categorical
+        description: Insurance line of business (Auto, Home, Life, Health).
+      - name: policy_status
+        type: categorical
+        description: Current status of the policy (Active, Cancelled, Expired, Pending).
+      - name: is_active_policy
+        type: categorical
+        description: Whether the policy is currently in force.
+      - name: policy_start_date
+        type: time
+        type_params:
+          time_granularity: day
+        description: Date the policy became effective.
+      - name: state_code
+        type: categorical
+        description: State where the policyholder resides.
+      - name: customer_segment
+        type: categorical
+        description: Customer value segment (e.g. High Value, Standard).
+      - name: age_band
+        type: categorical
+        description: Policyholder age group.
+
+    measures:
+      - name: policy_count
+        description: Number of policies in the selected slice.
+        agg: count
+        expr: policy_id
+      - name: total_annual_premium
+        description: Total written annual premium — the contractual premium for policies in the slice.
+        agg: sum
+        expr: annual_premium_amount
+      - name: total_settlement_paid
+        description: Total claim settlement payments made on policies in the slice.
+        agg: sum
+        expr: total_settlement_paid

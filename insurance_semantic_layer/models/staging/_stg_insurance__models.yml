@@ -1,0 +1,124 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: One row per customer. Renamed and cast from raw_customers_2hr.
+    columns:
+      - name: customer_id
+        description: Customer ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_name
+        description: Full name.
+        data_tests:
+          - not_null
+      - name: state_code
+        description: Renamed from state.
+      - name: age
+        description: Age in years.
+      - name: customer_segment
+        description: Segment label (e.g. High Value, Standard).
+
+  - name: stg_policies
+    description: One row per policy. Renamed and cast from raw_policies_2hr.
+    columns:
+      - name: policy_id
+        description: Policy ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: FK to stg_customers.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_customers')
+                field: customer_id
+      - name: policy_number
+        description: Policy number.
+        data_tests:
+          - unique
+          - not_null
+      - name: policy_type
+        description: Line of business (Auto, Home, Life, Health).
+        data_tests:
+          - not_null
+      - name: policy_status
+        description: Active, Cancelled, Expired, or Pending.
+        data_tests:
+          - not_null
+      - name: coverage_amount
+        description: Max coverage in USD.
+      - name: annual_premium_amount
+        description: Renamed from annual_premium.
+      - name: policy_start_date
+        description: Policy effective date.
+
+  - name: stg_claims
+    description: One row per claim. Cast from raw_claims_2hr.
+    columns:
+      - name: claim_id
+        description: Claim ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: policy_id
+        description: FK to stg_policies.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_policies')
+                field: policy_id
+      - name: claim_number
+        description: Claim number.
+        data_tests:
+          - unique
+          - not_null
+      - name: claim_category
+        description: Claim type (Collision, Property, Medical, etc.).
+      - name: claim_status
+        description: Settled, Pending, Denied, or In Review.
+        data_tests:
+          - not_null
+      - name: claim_amount
+        description: Amount claimed in USD.
+      - name: settlement_amount
+        description: Amount paid on settlement in USD.
+      - name: claim_date
+        description: Date filed.
+      - name: settlement_date
+        description: Settlement date. NULL if unsettled.
+      - name: days_to_settlement
+        description: Days from claim to settlement.
+
+  - name: stg_transactions
+    description: One row per transaction. Cast from raw_transactions_2hr.
+    columns:
+      - name: transaction_id
+        description: Transaction ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: policy_id
+        description: FK to stg_policies.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_policies')
+                field: policy_id
+      - name: transaction_type
+        description: Premium Payment, Refund, etc.
+        data_tests:
+          - not_null
+      - name: transaction_status
+        description: Completed, Pending, or Failed.
+        data_tests:
+          - not_null
+      - name: transaction_amount
+        description: Amount in USD.
+      - name: transaction_date
+        description: Date recorded.

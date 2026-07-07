@@ -1,0 +1,57 @@
+version: 2
+
+semantic_models:
+  - name: claims
+    description: >
+      Claims operations metrics — volume, settlement status, and time to settle.
+      Slice by claim type, status, or filing/settlement date.
+    model: ref('fct_claims')
+
+    defaults:
+      agg_time_dimension: claim_date
+
+    entities:
+      - name: claim
+        type: primary
+        expr: claim_id
+      - name: policy
+        type: foreign
+        expr: policy_id
+      - name: customer
+        type: foreign
+        expr: customer_id
+
+    dimensions:
+      - name: claim_category
+        type: categorical
+        description: Type of loss or event driving the claim (Collision, Property, Medical, etc.).
+      - name: claim_status
+        type: categorical
+        description: Where the claim sits in the workflow (Settled, Pending, Denied, In Review).
+      - name: is_settled_claim
+        type: categorical
+        description: Whether the claim has been settled and paid out.
+      - name: claim_date
+        type: time
+        type_params:
+          time_granularity: day
+        description: Date the policyholder filed the claim.
+      - name: settlement_date
+        type: time
+        type_params:
+          time_granularity: day
+        description: Date the claim was paid. Blank if still open.
+
+    measures:
+      - name: claim_detail_count
+        description: Number of claims filed.
+        agg: count
+        expr: claim_id
+      - name: settled_claim_count
+        description: Number of claims settled and paid out.
+        agg: sum
+        expr: "case when is_settled_claim then 1 else 0 end"
+      - name: average_days_to_settlement
+        description: Average calendar days from claim filing to settlement payment.
+        agg: average
+        expr: days_to_settlement

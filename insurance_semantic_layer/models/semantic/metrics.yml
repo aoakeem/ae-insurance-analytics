@@ -1,0 +1,73 @@
+version: 2
+
+metrics:
+
+  - name: policy_count
+    label: Policy Count
+    description: Total number of insurance policies in the book of business.
+    type: simple
+    type_params:
+      measure: policy_count
+
+  - name: active_policies
+    label: Active Policies
+    description: Number of policies currently in force (status = Active).
+    type: simple
+    type_params:
+      measure: policy_count
+    filter: |
+      {{ Dimension('policy__is_active_policy') }}
+
+  - name: claim_count
+    label: Claim Count
+    description: Total number of claims filed against policies.
+    type: simple
+    type_params:
+      measure: claim_detail_count
+
+  - name: settled_claims
+    label: Settled Claims
+    description: Number of claims that have been settled and paid out.
+    type: simple
+    type_params:
+      measure: settled_claim_count
+
+  - name: total_annual_premium
+    label: Total Annual Premium (Written)
+    description: >
+      Total written annual premium across the selected policies. This is the
+      contractual premium on the policy, not cash collected.
+    type: simple
+    type_params:
+      measure: total_annual_premium
+
+  - name: total_settlement_amount
+    label: Total Settlement Amount
+    description: Total dollars paid out to policyholders to settle claims.
+    type: simple
+    type_params:
+      measure: total_settlement_paid
+
+  - name: average_time_to_claim_settlement
+    label: Average Time to Claim Settlement
+    description: >
+      Average number of calendar days from claim filing to settlement payment.
+      Calculated on settled claims only.
+    type: simple
+    type_params:
+      measure: average_days_to_settlement
+    filter: |
+      {{ Dimension('claim__is_settled_claim') }}
+
+  - name: loss_ratio
+    label: Loss Ratio
+    description: >
+      Claim settlements paid divided by written annual premium. Measures how
+      much of every premium dollar is paid out in claims. I used written
+      premium rather than cash collected because the sample transaction data
+      doesn't track policy terms cleanly. In production I'd confirm the
+      denominator with Finance.
+    type: ratio
+    type_params:
+      numerator: total_settlement_amount
+      denominator: total_annual_premium

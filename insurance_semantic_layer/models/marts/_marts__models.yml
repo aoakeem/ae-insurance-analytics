@@ -1,0 +1,287 @@
+version: 2
+
+models:
+
+  - name: dim_customers
+    description: Customer dimension. One row per customer.
+    columns:
+      - name: customer_id
+        description: Customer ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_name
+        description: Full name.
+      - name: state_code
+        description: Two-letter US state code.
+      - name: age
+        description: Age in years.
+      - name: age_band
+        description: Bucketed age (18-29, 30-44, 45-59, 60+).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['18-29', '30-44', '45-59', '60+', 'Unknown']
+      - name: customer_segment
+        description: Segment label (e.g. High Value, Standard).
+
+  - name: dim_dates
+    description: Calendar date dimension. One row per day. Used as the MetricFlow time spine.
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_day
+        description: Calendar date.
+        granularity: day
+        data_tests:
+          - unique
+          - not_null
+      - name: year_number
+        description: Year.
+      - name: quarter_number
+        description: Quarter (1-4).
+      - name: month_number
+        description: Month (1-12).
+      - name: month_name
+        description: Month name.
+      - name: day_of_month
+        description: Day of month (1-31).
+      - name: day_of_year
+        description: Day of year (1-366).
+      - name: day_of_week
+        description: Day of week (0=Sunday).
+      - name: day_name
+        description: Day name.
+      - name: week_of_year
+        description: ISO week number.
+      - name: is_weekend
+        description: True on Saturday or Sunday.
+      - name: year_month
+        description: YYYY-MM string.
+      - name: year_quarter
+        description: YYYY-QN string.
+
+  - name: fct_policies
+    description: Policy fact. One row per policy. Policy attributes plus coverage and annual premium.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "coverage_amount >= 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "annual_premium_amount >= 0"
+    columns:
+      - name: policy_id
+        description: Policy ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: FK to dim_customers.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: policy_number
+        description: Policy number.
+        data_tests:
+          - unique
+          - not_null
+      - name: policy_type
+        description: Line of business (Auto, Home, Life, Health).
+        data_tests:
+          - not_null
+      - name: policy_status
+        description: Active, Cancelled, Expired, or Pending.
+        data_tests:
+          - not_null
+      - name: policy_start_date
+        description: Policy effective date.
+      - name: coverage_amount
+        description: Max coverage in USD.
+      - name: annual_premium_amount
+        description: Annual premium in USD.
+      - name: is_active_policy
+        description: True when policy_status is Active.
+        data_tests:
+          - not_null
+
+  - name: fct_claims
+    description: Claim fact. One row per claim. customer_id denormalized from policy for customer-level slicing.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "claim_amount >= 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "settlement_amount >= 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "settlement_date >= claim_date"
+          config:
+            where: "settlement_date is not null"
+    columns:
+      - name: claim_id
+        description: Claim ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: policy_id
+        description: FK to fct_policies.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_policies')
+                field: policy_id
+      - name: customer_id
+        description: FK to dim_customers. Denormalized via policy.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: claim_number
+        description: Claim number.
+        data_tests:
+          - unique
+          - not_null
+      - name: claim_category
+        description: Claim type (Collision, Property, Medical, etc.).
+      - name: claim_status
+        description: Settled, Pending, Denied, or In Review.
+        data_tests:
+          - not_null
+      - name: claim_date
+        description: Date filed.
+        data_tests:
+          - not_null
+      - name: settlement_date
+        description: Settlement date. NULL if unsettled.
+      - name: claim_amount
+        description: Amount claimed in USD.
+      - name: settlement_amount
+        description: Amount paid on settlement in USD.
+      - name: days_to_settlement
+        description: Days from claim to settlement.
+      - name: is_settled_claim
+        description: True when claim_status is Settled.
+        data_tests:
+          - not_null
+
+  - name: fct_policy_summary
+    description: >
+      Reporting mart at policy grain. Rolls up claims and transactions per policy
+      so policy-level KPIs (loss ratio, premium collected) don't fan out on joins.
+    columns:
+      - name: policy_id
+        description: Policy ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: FK to dim_customers.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: policy_number
+        description: Policy number.
+        data_tests:
+          - unique
+          - not_null
+      - name: policy_type
+        description: Line of business (Auto, Home, Life, Health).
+        data_tests:
+          - not_null
+      - name: policy_status
+        description: Active, Cancelled, Expired, or Pending.
+        data_tests:
+          - not_null
+      - name: policy_start_date
+        description: Policy effective date.
+      - name: is_active_policy
+        description: True when policy_status is Active.
+        data_tests:
+          - not_null
+      - name: state_code
+        description: Denormalized from dim_customers.
+      - name: customer_segment
+        description: Denormalized from dim_customers.
+      - name: age_band
+        description: Denormalized from dim_customers.
+      - name: coverage_amount
+        description: Max coverage in USD.
+      - name: annual_premium_amount
+        description: Annual premium in USD.
+      - name: total_premium_paid
+        description: Sum of completed Premium Payment transactions.
+      - name: total_premium_adjustments
+        description: Sum of completed Adjustment transactions.
+      - name: total_net_premium_collected
+        description: Sum of all completed transactions.
+      - name: transaction_count
+        description: Count of transactions on the policy.
+      - name: claim_count
+        description: Count of claims on the policy.
+      - name: settled_claim_count
+        description: Count of settled claims on the policy.
+      - name: total_claim_amount
+        description: Sum of claim_amount across all claims.
+      - name: total_settlement_paid
+        description: Sum of settlement_amount for settled claims only.
+
+  - name: fct_transactions
+    description: Transaction fact. One row per transaction. customer_id denormalized from policy.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "transaction_amount >= 0"
+          config:
+            where: "transaction_type = 'Premium Payment'"
+    columns:
+      - name: transaction_id
+        description: Transaction ID.
+        data_tests:
+          - unique
+          - not_null
+      - name: policy_id
+        description: FK to fct_policies.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_policies')
+                field: policy_id
+      - name: customer_id
+        description: FK to dim_customers. Denormalized via policy.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: transaction_type
+        description: Premium Payment, Refund, Adjustment, etc.
+        data_tests:
+          - not_null
+      - name: transaction_status
+        description: Completed, Pending, or Failed.
+        data_tests:
+          - not_null
+      - name: transaction_date
+        description: Date recorded.
+        data_tests:
+          - not_null
+      - name: transaction_amount
+        description: Amount in USD.
+      - name: is_completed_transaction
+        description: True when transaction_status is Completed.
+        data_tests:
+          - not_null

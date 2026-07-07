@@ -1,0 +1,14 @@
+# dbt build artifacts
+target/
+dbt_packages/
+logs/
+
+# Local database files
+*.duckdb
+*.duckdb.wal
+
+# MetricFlow generated files
+.user.yml
+
+# macOS
+.DS_Store
